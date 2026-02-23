@@ -2,6 +2,5 @@ flask==3.0.2
 flask-cors==4.0.0
 gunicorn==21.2.0
 sentence-transformers==2.6.1
-faiss-cpu==1.7.4
+faiss-cpu==1.13.2
 numpy==1.26.4
-torch==2.2.2
