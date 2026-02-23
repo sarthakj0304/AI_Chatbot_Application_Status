@@ -37,7 +37,7 @@ conversation_cursor.execute("""
 
 init_leads_db()
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
 print("🔹 Loading RAG system...")
 rag = RAGSearch("RAG/faiss_store")
 print(" RAG ready.")
