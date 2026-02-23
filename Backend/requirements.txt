@@ -4,3 +4,4 @@ gunicorn==21.2.0
 sentence-transformers==2.6.1
 faiss-cpu==1.13.2
 numpy==1.26.4
+python-dotenv==1.0.1
