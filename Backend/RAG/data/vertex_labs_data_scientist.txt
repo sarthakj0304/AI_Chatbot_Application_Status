@@ -1,0 +1,17 @@
+Job Title: Data Scientist
+Location: Remote
+Salary Range: $115,000 – $165,000 USD
+
+Role Overview
+Data Scientists analyze structured and unstructured data to build predictive models that enhance product intelligence.
+
+Responsibilities
+- Build machine learning models
+- Analyze large datasets
+- Communicate insights to stakeholders
+- Deploy models with engineering teams
+
+Qualifications
+- Strong Python and SQL skills
+- Experience with machine learning libraries
+- Background in statistics or applied mathematics

@@ -1,0 +1,23 @@
+Job Title: Backend Engineer
+Location: Remote / Hybrid
+Salary Range: $110,000 – $155,000 USD
+
+Role Overview
+Backend Engineers at Vertex Labs design and build scalable APIs and services that power our automation platform.
+
+Responsibilities
+- Develop and maintain backend services
+- Design RESTful APIs
+- Optimize performance and reliability
+- Collaborate with frontend and product teams
+- Write clean, well-tested code
+
+Qualifications
+- 3+ years backend development experience
+- Experience with Python, Java, or Node.js
+- Experience with relational databases
+- Understanding of distributed systems
+
+Preferred Qualifications
+- Experience with AWS or GCP
+- Experience with Docker and CI/CD pipelines
