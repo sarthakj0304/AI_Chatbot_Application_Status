@@ -1,11 +1,26 @@
 from flask import Flask, request, jsonify
-from RAG.src.search import RAGSearch
-import time
 from flask_cors import CORS
-
 import sqlite3
+from RAG.search import RAGSearch
 
-# Persistent DB for leads
+app = Flask(__name__)
+CORS(
+    app,
+    resources={r"/*": {"origins": "*"}},
+    supports_credentials=True
+)
+
+# ==============================
+# Load RAG once (VERY IMPORTANT)
+# ==============================
+print("🔹 Loading RAG system...")
+rag = RAGSearch("rag/faiss_store")
+print(" RAG ready.")
+
+# ==============================
+# Persistent Leads Database
+# ==============================
+
 def init_leads_db():
     conn = sqlite3.connect("leads.db")
     c = conn.cursor()
@@ -22,7 +37,13 @@ def init_leads_db():
     conn.commit()
     conn.close()
 
-# In-memory DB for conversations
+init_leads_db()
+
+# ==============================
+# In-Memory Conversations DB
+# (clears when server restarts)
+# ==============================
+
 conversation_conn = sqlite3.connect(":memory:", check_same_thread=False)
 conversation_cursor = conversation_conn.cursor()
 
@@ -35,21 +56,17 @@ conversation_cursor.execute("""
     )
 """)
 
-init_leads_db()
-app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
-print("🔹 Loading RAG system...")
-rag = RAGSearch("RAG/faiss_store")
-print(" RAG ready.")
-
-# In-memory conversation logs
-conversation_logs = []
-query_counts = {}
+# ==============================
+# Chat Endpoint
+# ==============================
 
 @app.route("/chat", methods=["POST"])
 def chat():
     data = request.json
     query = data.get("query")
+
+    if not query:
+        return jsonify({"answer": "No query provided."}), 400
 
     answer = rag.search(query)
 
@@ -62,23 +79,36 @@ def chat():
     return jsonify({"answer": answer})
 
 
+# ==============================
+# Lead Capture Endpoint
+# ==============================
+
 @app.route("/lead", methods=["POST"])
 def lead():
     data = request.json
     email = data.get("email")
     role = data.get("role")
 
+    if not email or not role:
+        return jsonify({"message": "Missing email or role"}), 400
+
     conn = sqlite3.connect("leads.db")
     c = conn.cursor()
+
     c.execute(
         "INSERT INTO leads (email, role) VALUES (?, ?)",
-        (email, role),
+        (email, role)
     )
+
     conn.commit()
     conn.close()
 
     return jsonify({"message": "Lead captured successfully"})
 
+
+# ==============================
+# Admin - Conversation Logs
+# ==============================
 
 @app.route("/admin/logs", methods=["GET"])
 def admin_logs():
@@ -89,9 +119,12 @@ def admin_logs():
     """)
 
     rows = conversation_cursor.fetchall()
-
     return jsonify(rows)
 
+
+# ==============================
+# Admin - Most Asked Questions
+# ==============================
 
 @app.route("/admin/stats", methods=["GET"])
 def admin_stats():
@@ -104,9 +137,12 @@ def admin_stats():
     """)
 
     rows = conversation_cursor.fetchall()
-
     return jsonify(rows)
 
+
+# ==============================
+# Run App
+# ==============================
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
