@@ -14,7 +14,7 @@ CORS(
 # Load RAG once (VERY IMPORTANT)
 # ==============================
 print("🔹 Loading RAG system...")
-rag = RAGSearch("rag/faiss_store")
+rag = RAGSearch("RAG/faiss_store")
 print(" RAG ready.")
 
 # ==============================
