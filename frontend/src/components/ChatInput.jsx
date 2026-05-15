@@ -1,17 +1,25 @@
+import { SendHorizontal } from "lucide-react";
+
 export default function ChatInput({ input, setInput, send }) {
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') send();
+  };
+
   return (
-    <div className="glass p-4 flex gap-3 rounded-2xl">
+    <div className="glass-panel p-2 flex gap-2 rounded-2xl border border-white/10 mx-auto w-full max-w-3xl shadow-2xl">
       <input
-        className="flex-1 bg-transparent outline-none text-white"
+        className="flex-1 bg-transparent outline-none text-slate-200 px-4 py-3 placeholder:text-slate-500 font-medium"
         value={input}
         onChange={(e) => setInput(e.target.value)}
-        placeholder="Ask about roles, benefits, interview process..."
+        onKeyDown={handleKeyDown}
+        placeholder="Ask anything about the uploaded documents..."
       />
       <button
         onClick={send}
-        className="bg-indigo-600 hover:bg-indigo-500 px-5 py-2 rounded-xl transition"
+        disabled={!input.trim()}
+        className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed px-5 py-3 rounded-xl transition flex items-center justify-center text-white"
       >
-        Send
+        <SendHorizontal size={20} />
       </button>
     </div>
   );

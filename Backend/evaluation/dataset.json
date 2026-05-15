@@ -1,0 +1,27 @@
+import json
+
+dataset = [
+    {
+        "query": "What is the typical salary for a software engineer?",
+        "expected_keywords": ["salary", "compensation", "range", "software engineer"]
+    },
+    {
+        "query": "How many days of PTO do employees get?",
+        "expected_keywords": ["pto", "vacation", "days", "leave"]
+    },
+    {
+        "query": "What is the interview process like?",
+        "expected_keywords": ["interview", "process", "rounds", "technical"]
+    },
+    {
+        "query": "Are there any health benefits provided?",
+        "expected_keywords": ["health", "insurance", "medical", "dental"]
+    },
+    {
+        "query": "Is remote work allowed?",
+        "expected_keywords": ["remote", "wfh", "work from home", "hybrid"]
+    }
+]
+
+with open("dataset.json", "w") as f:
+    json.dump(dataset, f, indent=4)

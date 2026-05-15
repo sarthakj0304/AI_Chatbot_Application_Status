@@ -1,0 +1,17 @@
+Here are some questions you can ask the chatbot after uploading the documents from the `test_docs` folder:
+
+For the Engineering Guidelines Document (engineering_guidelines.docx):
+1. How many approvals are needed for a pull request?
+2. What days do production deployments happen?
+3. How much is the on-call stipend?
+4. When does the on-call rotation start?
+
+For the Employee Benefits Document (employee_benefits.pdf):
+1. How many PTO days do I get?
+2. Does the company provide a 401(k) match?
+3. What is the fitness stipend?
+4. How many standard company holidays are observed?
+
+Questions to test Hybrid Retrieval / Fallback:
+1. What is the hotfix process? (Tests BM25/Vector retrieval)
+2. What is the capital of France? (Should trigger Gemini fallback as it's not in the docs)
