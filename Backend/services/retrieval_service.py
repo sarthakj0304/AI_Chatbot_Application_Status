@@ -1,12 +1,10 @@
 import numpy as np
-from fastembed import TextEmbedding
 from rank_bm25 import BM25Okapi
 from database.db_manager import get_all_chunks
 from services.indexing_service import indexing_service
 
 class RetrievalService:
     def __init__(self):
-        self.embed_model = TextEmbedding()
         self.bm25 = None
         self.corpus_chunks = [] # List of tuples: (id, text, filename)
         self.tokenized_corpus = []
@@ -27,7 +25,7 @@ class RetrievalService:
             return []
             
         # 1. Vector Search (FAISS)
-        query_embedding = np.array(list(self.embed_model.embed([query]))).astype("float32")
+        query_embedding = np.array(list(indexing_service.model.embed([query]))).astype("float32")
         k_vector = min(10, len(self.corpus_chunks))
         distances, indices = indexing_service.index.search(query_embedding, k_vector)
         
