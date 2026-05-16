@@ -14,14 +14,14 @@ An AI-powered Careers Assistant that provides candidates with instant, accurate 
 - **Frontend (Vercel):** [https://ai-chatbot-application-status.vercel.app/](https://ai-chatbot-application-status.vercel.app/)
 - **Backend API (Render):** [https://ai-chatbot-application-status.onrender.com](https://ai-chatbot-application-status.onrender.com)
 
-## ✨ Features
+## Features
 
 - **Hybrid Vector Search:** Combines FAISS (FastEmbed) vector similarity and BM25 keyword matching with Reciprocal Rank Fusion (RRF) for lightning-fast, highly relevant retrieval.
 - **Strict Anti-Hallucination:** Refuses to answer queries that fall outside of the uploaded knowledge base.
 - **Dynamic Knowledge Base:** Drag-and-drop PDF ingestion to easily update the bot's memory context.
 - **Recruiter Dashboard:** An admin panel that tracks conversation logs, flags unanswered queries, and captures candidate leads.
 
-## 🚀 How to Use
+##  How to Use
 
 1. **Open the live application:** Visit the [Frontend URL](https://ai-chatbot-application-status.vercel.app/). *(No login required)*
 2. **Upload Context:** Upload your company policy PDFs or job descriptions (if prompted by the interface).
@@ -33,7 +33,7 @@ An AI-powered Careers Assistant that provides candidates with instant, accurate 
 4. **Submit Interest:** If you find a role you like, click the **Interested** button to submit your email and preferred role to the recruiter.
 5. **Admin Analytics:** Visit `/admin` to view real-time conversation logs, success rates, and the most frequently asked questions.
 
-## 🛠️ Local Development
+## Local Development
 
 ### 1. Backend Setup
 ```bash
