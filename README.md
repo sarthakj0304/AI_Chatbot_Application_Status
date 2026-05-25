@@ -9,9 +9,11 @@ An AI-powered Careers Assistant that provides candidates with instant, accurate 
 ![Render](https://img.shields.io/badge/Render-%46E3B7.svg?style=for-the-badge&logo=render&logoColor=white)
 ![Vercel](https://img.shields.io/badge/vercel-%23000000.svg?style=for-the-badge&logo=vercel&logoColor=white)
 
-## 🔗 Live Links
+## 🔗 Live Links 
 
-- **Frontend (Vercel):** [https://ai-chatbot-application-status.vercel.app/](https://ai-chatbot-application-status.vercel.app/)
+Backend deployed on render free tier which spins down after inactivity which can cause the requests to be deplayed by 40-50 seconds.
+
+- **Frontend (Vercel):** [https://ai-chatbot-application-status.vercel.app/](https://ai-chatbot-application-status.vercel.app/) 
 - **Backend API (Render):** [https://ai-chatbot-application-status.onrender.com](https://ai-chatbot-application-status.onrender.com)
 
 ## Features
