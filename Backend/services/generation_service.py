@@ -64,6 +64,7 @@ class GenerationService:
                 contents=prompt
             )
             answer = response.text
+            print("gemini key used")
         except Exception as e:
             print(f"Gemini generation failed: {e}")
             # Fallback to returning just the top chunk text if LLM fails
