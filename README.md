@@ -96,13 +96,13 @@ Create an operational environment variables file named exactly `.env` in the **a
 GEMINI_API_KEY=your_actual_google_gemini_api_key_here
 ```
 
-###2. Provision and Run the Container Stack
+### 2. Provision and Run the Container Stack
 
 Open your host system terminal inside the absolute root project directory and execute the multi-container startup sequence:
 Bash
-
+```
 docker compose up --build
-
+```
 Docker Compose will systematically download official system layers for PostgreSQL and Redis, build your customized application layers for both your FastAPI API and Celery Worker environments using a unified Dockerfile blueprint, provision virtual local network bridges, mount storage drives, and stream all server outputs into your consolidated command prompt view.
 Client UI Interface: http://localhost:5173
 
