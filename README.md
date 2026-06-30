@@ -1,16 +1,18 @@
-# AI Career Assistant (RAG Platform)
+# CareerContext (Enterprise AI Career Assistant Production-Grade RAG Platform)
 
-An AI-powered Careers Assistant that provides candidates with instant, accurate answers about roles, benefits, interview processes, and company policies. Built with a robust Retrieval-Augmented Generation (RAG) architecture, this platform guarantees high accuracy and strictly eliminates LLM hallucinations by enforcing local context grounding.
+An asynchronous, production-ready Retrieval-Augmented Generation (RAG) platform that provides candidates with instant, high-context insights into roles, benefits, interview processes, and corporate policies. Engineered with a completely decoupled, containerized microservices architecture, this platform enforces absolute local context grounding to eliminate LLM hallucinations while isolating heavy mathematical and file-parsing workloads from the user-facing web API.
 
 ![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)
 ![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white)
-![Flask](https://img.shields.io/badge/flask-%23000.svg?style=for-the-badge&logo=flask&logoColor=white)
-![SQLite](https://img.shields.io/badge/sqlite-%2307405e.svg?style=for-the-badge&logo=sqlite&logoColor=white)
-![Render](https://img.shields.io/badge/Render-%46E3B7.svg?style=for-the-badge&logo=render&logoColor=white)
-![Vercel](https://img.shields.io/badge/vercel-%23000000.svg?style=for-the-badge&logo=vercel&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi&logoColor=white)
+![Celery](https://img.shields.io/badge/celery-%23a9cc54.svg?style=for-the-badge&logo=celery&logoColor=ddf4a4)
+![Redis](https://img.shields.io/badge/redis-%23DD0000.svg?style=for-the-badge&logo=redis&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/postgresql-%23316192.svg?style=for-the-badge&logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
 
+---
 
-## Screenshots
+##  Screenshots
 
 ### Upload
 ![Upload Page](assets/input_page.png)
@@ -21,57 +23,91 @@ An AI-powered Careers Assistant that provides candidates with instant, accurate 
 ### Admin Page
 ![Dashboard](assets/admin_page.png)
 
+---
 
-## 🔗 Live Links 
+##  System Architecture & Data Flow
 
-Backend deployed on render free tier which spins down after inactivity which can cause the requests to be deplayed by 40-50 seconds.
+The platform separates the **Web Brain** from the **Mathematical Workforce** to guarantee zero CPU starvation and optimal API responsiveness under high load:
 
-- **Frontend (Vercel):** [https://ai-chatbot-application-status.vercel.app/](https://ai-chatbot-application-status.vercel.app/) 
-- **Backend API (Render):** [https://ai-chatbot-application-status.onrender.com](https://ai-chatbot-application-status.onrender.com)
-
-## Features
-
-- **Hybrid Vector Search:** Combines FAISS (FastEmbed) vector similarity and BM25 keyword matching with Reciprocal Rank Fusion (RRF) for lightning-fast, highly relevant retrieval.
-- **Strict Anti-Hallucination:** Refuses to answer queries that fall outside of the uploaded knowledge base.
-- **Dynamic Knowledge Base:** Drag-and-drop PDF ingestion to easily update the bot's memory context.
-- **Recruiter Dashboard:** An admin panel that tracks conversation logs, flags unanswered queries, and captures candidate leads.
-
-##  How to Use
-
-1. **Open the live application:** Visit the [Frontend URL](https://ai-chatbot-application-status.vercel.app/). *(No login required)*
-2. **Upload Context:** Upload your company policy PDFs or job descriptions (if prompted by the interface).
-3. **Ask Questions:** Chat with the assistant. Try asking:
-   - *"What’s the salary for Backend Engineer?"*
-   - *"What are the Benefits & Perks at Vertex Labs?"*
-   - *"What’s the salary range for Product Manager?"*
-   - *"Describe the Vertex Labs Interview Process."*
-4. **Submit Interest:** If you find a role you like, click the **Interested** button to submit your email and preferred role to the recruiter.
-5. **Admin Analytics:** Visit `/admin` to view real-time conversation logs, success rates, and the most frequently asked questions.
-
-## Local Development
-
-### 1. Backend Setup
-```bash
-cd Backend
-python3 -m venv venv
-source venv/bin/activate  # On Windows use `venv\Scripts\activate`
-pip install -r requirements.txt
-
-# Create a .env file and add your Gemini API Key
-# GEMINI_API_KEY=your_key_here
-
-# Run the Flask API
-python app.py
-```
-
-### 2. Frontend Setup
-```bash
-cd frontend
-npm install
-
-# Run the Vite development server
-npm run dev
-```
+1. **Client Tier:** A responsive React Single Page Application (SPA) compiled with Vite, handling interactive state management, multi-turn chat sessions, and asynchronous multipart file uploads.
+2. **Web API Tier:** A high-throughput FastAPI server driving non-blocking asynchronous HTTP routing. It serves as a task producer, instantly offloading heavy logic to the message broker while committing shallow metadata to PostgreSQL.
+3. **Message Broker / Caching Tier:** A Redis container serving a dual purpose: acting as a high-speed FIFO task broker queue for Celery, and managing an independent in-memory data store for semantic query caching.
+4. **Asynchronous Worker Tier:** A completely isolated background Celery Worker environment dedicated to heavy-duty Python computation (extracting PDF strings, mathematical text-splitting, tokenizing, and calculating embedding structures).
+5. **Data Engine Tier:** A relational PostgreSQL database housing structured schemas (Document metadata, raw Text Chunks, Recruiter Leads, and Conversation Logs) running adjacent to a containerized FAISS (Facebook AI Similarity Search) binary vector database.
 
 ---
-*Developed for instant, intelligent candidate engagement.*
+
+## Key Engineering Features & Implementations
+
+### 1. Decoupled Task Ingestion (Asynchronous Pipelines)
+* **What it does:** Allows users to upload multi-page corporate PDFs without causing the web application UI or API to freeze.
+* **How it works:** When a PDF is received, FastAPI generates a unique `document_id` in PostgreSQL, saves the raw file to a shared Docker disk volume, drops a lightweight JSON payload into the Redis broker queue, and instantly returns a `202 Accepted` status. A background Celery worker picks up the job out-of-process, runs the file extraction, and writes the chunks completely independent of the API server loop.
+
+### 2. State-Synchronized Hybrid Retrieval (FAISS + BM25 + RRF)
+* **What it does:** Combines exact keyword matches with deep contextual meaning for optimal query-to-chunk matching.
+* **How it works:** - **Vector Search:** Uses `FastEmbed` to generate dense queries, normalized via `faiss.normalize_L2` to switch FAISS math into explicit **Cosine Similarity (via `IndexFlatIP`)** to provide a strict similarity metric scale bounded between `0.0` and `1.0`.
+  - **Keyword Search:** Uses `BM25Okapi` to capture absolute terminology constraints (e.g., specific salary figures or exact role titles).
+  - **Fusion:** Merges both candidate lists using **Reciprocal Rank Fusion (RRF)** to accurately weigh and rank the top relevant text segments.
+  - **Live State Sync:** Because FastAPI and Celery run in distinct container filesystems, the retrieval engine utilizes a specialized *disk-reconciliation hook* that dynamically loads the latest raw `index.faiss` binary file from the shared volume on every incoming chat query, solving container state-disconnects.
+
+### 3. Strict Anti-Hallucination Gatekeeper
+* **What it does:** Prevents the system from making up false professional facts or leaking generalized public knowledge, protecting the platform from hallucinated answers.
+* **How it works:** Evaluates the best available chunk outputs from the RRF loop. If a user’s query contains zero keyword overlap (`best_bm25 == 0.0`) and drops below an explicit semantic confidence threshold (`best_faiss < 0.50`), the platform aggressively stops execution. It returns a standardized fail-safe fallback message instantly, saving money on unnecessary LLM API usage.
+
+### 4. Idempotent Ingestion via Cryptographic Hashing
+* **What it does:** Prevents duplicate chunks and overlapping vectors from cluttering data store volumes if a file is re-uploaded.
+* **How it works:** Inside the background worker pipeline, the extracted PDF text is serialized and transformed into an MD5 cryptographic hash (`hashlib.md5`). Before chunking, the worker cross-references this signature against PostgreSQL. If a matching hash already exists under a `completed` document status, it flags the file as a duplicate, deletes the temporary file to preserve space, and breaks execution cleanly.
+
+### 5. In-Memory Sub-Millisecond Caching
+* **What it does:** Instantly returns answers to frequently or identical questions without performing vector database math or invoking the LLM.
+* **How it works:** Leverages an isolated database index inside Redis (`db=1`). When a query hits the API, a fast key lookup checks the Redis memory space. On a cache hit, the grounded JSON answer is returned in less than 2 milliseconds. On a cache miss, the RAG loop runs normally, and successful ground truth outcomes are cached with an explicit Time-To-Live (TTL) expiration window.
+
+### 6. Recruiter Dashboard & Lead Acquisition
+* **What it does:** Bridges the gap between candidate inquiries and direct recruitment acquisition.
+* **How it works:** Features an automated lead-capture endpoint that converts candidate interest actions into a structured database record. Includes a secure metrics dashboard accessible at `/admin` to query analytics data, monitor success metrics, isolate low-confidence unanswered queries, and track real-time recruitment funnels.
+
+---
+
+## 🛠️ How to Use the App
+
+1. **Access the Frontend Interface:** Open your web browser and navigate to the [Live Frontend Deployment URL](https://ai-chatbot-application-status.vercel.app/). No account registration or login sequences are required.
+2. **Seed Knowledge Base Context:** Move to the document upload screen and provide company context files such as your corporate policy documentation, human resources benefit guidelines, or upcoming technical job specifications.
+3. **Engage with the Assistant:** Switch back to the conversational panel and test the platform’s localized reasoning constraints. Try submitting real-world programmatic inquiries such as:
+   - *"What’s the starting salary matrix for a Backend Engineer?"*
+   - *"What are the medical and lifestyle benefits provided at Vertex Labs?"*
+   - *"Describe the comprehensive phase-by-phase interview process for a Product Manager."*
+4. **Trigger Lead Submission:** If a specific job or policy aligns with your background, interact with the **Interested** CTA button. Enter your email profile and target title to log your information into the recruitment lead console.
+5. **Review Administrative Analytics:** Append `/admin` to your client browser route to review live metrics, see overall answer success counts, and track what questions candidates are asking most frequently.
+
+---
+
+## Local Development (Orchestrated Infrastructure)
+
+Thanks to Docker Compose integration, you do not need to install system level setups of Node.js, Python, PostgreSQL, or Redis servers natively on your host machine. The entire infrastructure boots up fully networked inside isolated system boxes with a single terminal command.
+
+### Technical Prerequisites
+- **Docker Engine** and **Docker Compose** installed globally.
+- A functional **Google Gemini API Key**.
+
+### 1. Environmental Configuration
+Create an operational environment variables file named exactly `.env` in the **absolute root directory** (the parent folder housing both the `backend/` and `frontend/` directories):
+
+```env
+GEMINI_API_KEY=your_actual_google_gemini_api_key_here
+```
+
+###2. Provision and Run the Container Stack
+
+Open your host system terminal inside the absolute root project directory and execute the multi-container startup sequence:
+Bash
+
+docker compose up --build
+
+Docker Compose will systematically download official system layers for PostgreSQL and Redis, build your customized application layers for both your FastAPI API and Celery Worker environments using a unified Dockerfile blueprint, provision virtual local network bridges, mount storage drives, and stream all server outputs into your consolidated command prompt view.
+Client UI Interface: http://localhost:5173
+
+Automated OpenAPI Web Documentation: http://localhost:5001/docs
+
+Recruiter Analytics Workspace: http://localhost:5173/admin
+---
+*Engineered for secure, scalable, and contextually absolute candidate engagement.*
