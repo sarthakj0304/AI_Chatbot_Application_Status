@@ -14,18 +14,36 @@ class GenerationService:
         return self.client
 
     def generate_answer(self, query):
+        
+        clean_query = query.strip().lower()
+        if not clean_query or len(clean_query) < 4:
+            return {"answer": "Please provide a valid question.", "citations": []}
+    
         # Retrieve context
         top_chunks = retrieval_service.search(query, top_k=3)
         
-        if not top_chunks:
+        
+        if not top_chunks or len(top_chunks) == 0:
+            
             return {
                 "answer": "I don't have the specific context to answer that question.",
                 "citations": []
             }
             
-        # Check confidence (Cross Encoder scores typically range from roughly -10 to +10)
-        # We can set a threshold. If the best score is very low, it's a hallucination risk.
-        best_score = top_chunks[0]['score']
+        # Extract our metric indicators from the top match
+        best_bm25 = top_chunks[0]['bm25_score']
+        best_faiss = top_chunks[0]['faiss_score']
+        
+        print("best_bm25", best_bm25, " best faiss", best_faiss)
+        # 🛑 THE GATEKEEPER: Tighten these parameters based on your testing log data
+        # If using L2 Distance: higher numbers mean worse matches. 
+        # If a query has NO keywords (BM25 == 0) and the semantic match is weak (L2 > 0.85), BLOCK IT.
+        if best_bm25 == 0.0 and best_faiss < 0.60:
+            print(f"🛑 Gating Out-of-Context Query. (BM25: {best_bm25}, Cosine: {best_faiss})")
+            return {
+                "answer": "I don't have the specific context to answer that question.",
+                "citations": []
+            }
         
         # Prepare context text and citations
         context_text = ""
@@ -37,13 +55,8 @@ class GenerationService:
                 "text_snippet": chunk['text'][:100] + "..."
             })
             
-        # If confidence is exceptionally low, strictly deny the answer instead of hallucinating.
-        if best_score < -2.0:
-            print(f"Low confidence ({best_score}). Denying answer.")
-            return {
-                "answer": "The information was not provided in the documents",
-                "citations": []
-            }
+        
+        
         
         # Generate answer grounded in context
         prompt = f"""

@@ -1,0 +1,74 @@
+version: "3.8"
+
+services:
+  # 1. Database Service
+  postgres_db:
+    image: postgres:15-alpine
+    container_name: postgres_container
+    restart: always
+    environment:
+      POSTGRES_USER: sarthakjain
+      POSTGRES_PASSWORD: mysecurepassword
+      POSTGRES_DB: my_app_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    # 2. Message Broker Service
+  redis_broker:
+    image: redis:7-alpine
+    container_name: redis_container
+    restart: always
+    ports:
+      - "6379:6379"
+  web_api:
+    build: ./Backend
+    container_name: fastapi_container
+    restart: always
+    command: uvicorn app:app --host 0.0.0.0 --port 5001 --reload
+    ports:
+      - "5001:5001"
+    environment:
+      - DATABASE_URL=postgresql://sarthakjain:mysecurepassword@postgres_db:5432/my_app_db
+      - REDIS_URL=redis://redis_broker:6379/0
+    volumes:
+      - ./Backend:/app
+      - ./Backend/uploaded_files:/app/uploaded_files
+    depends_on:
+      - postgres_db
+      - redis_broker
+
+    # 4. Celery Background Worker Service
+  celery_worker:
+    build: ./Backend
+    container_name: celery_container
+    restart: always
+    command: celery -A tasks worker --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql://sarthakjain:mysecurepassword@postgres_db:5432/my_app_db
+      - REDIS_URL=redis://redis_broker:6379/0
+      - C_FORCE_ROOT=true
+    volumes:
+      - ./Backend:/app
+      - ./Backend/uploaded_files:/app/uploaded_files
+      - ./Backend/faiss_store:/app/faiss_store
+    depends_on:
+      - redis_broker
+      - postgres_db
+
+  # 5. ADD YOUR FRONTEND CONTAINER RIGHT HERE!
+  frontend_app:
+    build: ./frontend # <-- Points to frontend folder containing its Dockerfile
+    container_name: react_frontend_container
+    restart: always
+    ports:
+      - "5173:5173" # Maps your React dev port out to your browser
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules # Prevents local node_modules from overriding container builds
+    environment:
+      - VITE_API_URL=http://localhost:5001 # Tells frontend where to find FastAPI
+
+volumes:
+  postgres_data:

@@ -1,179 +1,157 @@
 import os
 from dotenv import load_dotenv
+import uvicorn
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from services.redis_cache_service import check_semantic_cache, save_to_cache
+import warnings
+# Silence annoying library deprecation warnings
 
-# Load env variables first
-load_dotenv()
-
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import sqlite3
-
-# Import our new modules
-from database.db_manager import init_db, execute_query
-
-# ==============================
-# Initialize Database (Must happen before service imports)
-# ==============================
-print("🔹 Initializing SQLite Database Schema...")
-init_db()
+warnings.filterwarnings("ignore", category=UserWarning)
 
 from services.ingestion_service import handle_upload
 from services.generation_service import generation_service
 
-app = Flask(__name__)
-CORS(
-    app,
-    resources={r"/*": {"origins": "*"}},
-    supports_credentials=True
+from fastapi.middleware.cors import CORSMiddleware
+
+from database.db_manager import init_db, get_db, Document, Conversation, Lead
+from contextlib import asynccontextmanager
+from sqlalchemy import func
+# Load env variables first
+load_dotenv()
+
+# ==============================
+# Initialize Database (Must happen before service imports)
+# ==============================
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("🔹 Initializing PostgreSQL Database Schema...")
+    init_db()  # Automatically checks Postgres and creates all tables
+    yield
+
+
+#Creating Fast API endpoint
+app = FastAPI(lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# ==============================
-# Persistent Leads Database
-# ==============================
 
-def init_leads_db():
-    conn = sqlite3.connect("leads.db", check_same_thread=False)
-    c = conn.cursor()
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS leads (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT,
-            role TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    conn.commit()
-    conn.close()
-
-init_leads_db()
-
-conversation_conn = sqlite3.connect(":memory:", check_same_thread=False)
-conversation_cursor = conversation_conn.cursor()
-conversation_cursor.execute("""
-    CREATE TABLE IF NOT EXISTS conversations (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        query TEXT,
-        answer TEXT,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-""")
 
 # ==============================
 # Document Upload Endpoint
 # ==============================
-@app.route("/upload", methods=["POST"])
-def upload_file():
-    if 'file' not in request.files:
-        return jsonify({"error": "No file part"}), 400
-    file = request.files['file']
-    response, status_code = handle_upload(file)
-    return jsonify(response), status_code
+@app.post("/upload")
+def upload_file(file : UploadFile = File(...), db : Session = Depends(get_db)):
+    result = handle_upload(file, db)
+    return result
 
-@app.route("/admin/documents", methods=["GET"])
-def get_documents():
-    docs = execute_query("SELECT id, filename, status, upload_time FROM documents ORDER BY id DESC", fetch_all=True)
-    result = [{"id": d[0], "filename": d[1], "status": d[2], "upload_time": d[3]} for d in docs]
-    return jsonify(result)
+@app.get("/admin/documents")
+def get_documents(db: Session = Depends(get_db)):
+    docs = db.query(Document).order_by(Document.id.desc()).all()
+    return [{"id": d.id, "filename": d.filename, "status": d.status, "upload_time": d.upload_time} for d in docs]
 
 # ==============================
 # Chat Endpoint
 # ==============================
-@app.route("/chat", methods=["POST"])
-def chat():
-    data = request.json
-    query = data.get("query")
+@app.post("/chat")
+def chat(payload : dict , db : Session = Depends(get_db) ):
+    
+    query = payload.get("query")
 
     if not query:
-        return jsonify({"answer": "No query provided."}), 400
+        raise HTTPException(status_code=400, detail="No query provided.")
+    
+    
+    cached_data = check_semantic_cache(query)
+    # If cache hit - return it
+    if cached_data:
+        return cached_data
 
-    # Use the new generation service (which uses retrieval_service internally)
+    
     result = generation_service.generate_answer(query)
+    
     answer = result["answer"]
     citations = result["citations"]
+    
+    new_convo = Conversation(query=query, answer=answer)
+    db.add(new_convo)
+    db.commit()
+    
+    if "context for your answer" not in result["answer"]:
+        save_to_cache(query, result)
 
-    cursor = conversation_conn.cursor()
-    cursor.execute(
-        "INSERT INTO conversations (query, answer) VALUES (?, ?)",
-        (query, answer)
-    )
-    conversation_conn.commit()
+    return {"answer": answer, "citations": citations}
 
-    return jsonify({"answer": answer, "citations": citations})
 
 # ==============================
 # Lead Capture Endpoint
 # ==============================
-@app.route("/lead", methods=["POST"])
-def lead():
-    data = request.json
+@app.post("/lead")
+def lead(data : dict, db : Session = Depends(get_db) ):
+    
     email = data.get("email")
     role = data.get("role")
 
     if not email or not role:
-        return jsonify({"message": "Missing email or role"}), 400
-
-    conn = sqlite3.connect("leads.db")
-    c = conn.cursor()
-    c.execute(
-        "INSERT INTO leads (email, role) VALUES (?, ?)",
-        (email, role)
-    )
-    conn.commit()
-    conn.close()
-
-    return jsonify({"message": "Lead captured successfully"})
+        raise HTTPException(status_code=400, detail= "Missing email or role")
+    
+    new_convo = Lead(email=email, role=role)
+    db.add(new_convo)
+    db.commit()
+    
+    return {"message": "Lead captured successfully"}
+    
 
 # ==============================
 # Admin - Conversation Logs
 # ==============================
-@app.route("/admin/logs", methods=["GET"])
-def admin_logs():
-    cursor = conversation_conn.cursor()
-    cursor.execute("""
-        SELECT query, answer, timestamp
-        FROM conversations
-        ORDER BY id DESC
-    """)
-    rows = cursor.fetchall()
-    return jsonify(rows)
+@app.get("/admin/logs")
+def admin_logs(db: Session = Depends(get_db)):
+    
+    rows = db.query(Conversation).order_by(Conversation.id.desc()).all()
+    return [{"query": r.query, "answer": r.answer, "timestamp": r.timestamp} for r in rows]
+
+    
 
 # ==============================
 # Admin - Most Asked Questions
 # ==============================
-@app.route("/admin/stats", methods=["GET"])
-def admin_stats():
-    cursor = conversation_conn.cursor()
-    cursor.execute("""
-        SELECT query, COUNT(*) as count
-        FROM conversations
-        GROUP BY query
-        ORDER BY count DESC
-        LIMIT 5
-    """)
-    rows = cursor.fetchall()
-    return jsonify(rows)
+@app.get("/admin/stats")
+def admin_stats(db: Session = Depends(get_db)):
+    # Counts top 5 most asked questions
+    stats = (
+        db.query(Conversation.query, func.count(Conversation.id).label("count"))
+        .group_by(Conversation.query)
+        .order_by(func.count(Conversation.id).desc())
+        .limit(5)
+        .all()
+    )
+    return [{"query": s[0], "count": s[1]} for s in stats]
 
-# ==============================
-# Admin - Analytics
-# ==============================
-@app.route("/admin/analytics", methods=["GET"])
-def admin_analytics():
-    cursor = conversation_conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM conversations")
-    total = cursor.fetchone()[0]
+@app.get("/admin/analytics")
+def admin_analytics(db: Session = Depends(get_db)):
+    total = db.query(Conversation).count()
     
-    cursor.execute("SELECT COUNT(*) FROM conversations WHERE answer LIKE '%don''t have the specific context%'")
-    unanswered = cursor.fetchone()[0]
+    # Matches your old string check logic
+    unanswered = db.query(Conversation).filter(Conversation.answer.like("%don't have the specific context%")).count()
     
-    return jsonify({
+    success_rate = round(((total - unanswered) / total * 100) if total > 0 else 100, 2)
+    
+    return {
         "total_queries": total,
         "unanswered_queries": unanswered,
-        "success_rate": round(((total - unanswered) / total * 100) if total > 0 else 100, 2)
-    })
+        "success_rate": success_rate
+    }
 
 # ==============================
 # Run App
 # ==============================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5001))
-    app.run(host="0.0.0.0", port=port)
+    uvicorn.run("app:app", host="0.0.0.0", port=port, reload=True)
