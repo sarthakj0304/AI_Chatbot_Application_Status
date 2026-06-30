@@ -104,10 +104,12 @@ Bash
 docker compose up --build
 ```
 Docker Compose will systematically download official system layers for PostgreSQL and Redis, build your customized application layers for both your FastAPI API and Celery Worker environments using a unified Dockerfile blueprint, provision virtual local network bridges, mount storage drives, and stream all server outputs into your consolidated command prompt view.
+
 Client UI Interface: http://localhost:5173
 
 Automated OpenAPI Web Documentation: http://localhost:5001/docs
 
 Recruiter Analytics Workspace: http://localhost:5173/admin
+
 ---
 *Engineered for secure, scalable, and contextually absolute candidate engagement.*
