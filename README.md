@@ -70,7 +70,7 @@ The platform separates the **Web Brain** from the **Mathematical Workforce** to 
 
 ## 🛠️ How to Use the App
 
-1. **Access the Frontend Interface:** Open your web browser and navigate to the [Live Frontend Deployment URL](https://ai-chatbot-application-status.vercel.app/). No account registration or login sequences are required.
+1. **Access the Frontend Interface:** Clone the repo, get gemini API key and run docker compose up --build to run the application locally.
 2. **Seed Knowledge Base Context:** Move to the document upload screen and provide company context files such as your corporate policy documentation, human resources benefit guidelines, or upcoming technical job specifications.
 3. **Engage with the Assistant:** Switch back to the conversational panel and test the platform’s localized reasoning constraints. Try submitting real-world programmatic inquiries such as:
    - *"What’s the starting salary matrix for a Backend Engineer?"*
